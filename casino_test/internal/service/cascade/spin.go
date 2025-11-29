@@ -3,6 +3,7 @@ package cascade
 import (
 	"context"
 	"errors"
+	"log"
 	"math/rand"
 
 	"casino_test/internal/model"
@@ -161,7 +162,19 @@ func (s *serv) spinOnce(bet int, resetMultipliers bool) (*model.CascadeSpinResul
 
 			positions := make([]model.Position, len(cl.cells))
 			for i, cell := range cl.cells {
-				positions[i] = model.Position{Row: cell[0], Col: cell[1]}
+				// cell это [2]int, где cell[0] = row, cell[1] = col
+				// ВАЖНО: проверяем координаты на доске В МОМЕНТ ПОИСКА кластера (oldBoard)
+				// потому что board уже изменен после удаления предыдущих кластеров!
+				r, c := cell[0], cell[1]
+				if r < 0 || r >= rows || c < 0 || c >= cols {
+					log.Printf("ERROR: Некорректные координаты в кластере: [%d, %d]", r, c)
+					continue
+				}
+				// Проверяем на старой доске (до удаления кластеров в этой итерации)
+				if oldBoard[r][c] != cl.symbol {
+					log.Printf("ERROR: Ячейка [%d, %d] на старой доске имеет символ %d, ожидался %d", r, c, oldBoard[r][c], cl.symbol)
+				}
+				positions[i] = model.Position{Row: r, Col: c}
 			}
 
 			step.Clusters = append(step.Clusters, model.ClusterInfo{
@@ -280,13 +293,16 @@ func (s *serv) randomRegularSymbol() int {
 }
 
 // findClusters ищет кластеры на доске
+// Использует BFS для поиска всех связанных ячеек одного символа
 func (s *serv) findClusters(board [rows][cols]int) []cluster {
 	visited := [rows][cols]bool{}
 	var clusters []cluster
+	// Направления: вправо, вниз, влево, вверх (только горизонтальные и вертикальные связи)
 	dirs := [][2]int{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
+			// Пропускаем уже посещенные ячейки, пустые ячейки и бонусные символы
 			if visited[r][c] || board[r][c] == emptyCell || board[r][c] == symbolBonus {
 				continue
 			}
@@ -294,26 +310,62 @@ func (s *serv) findClusters(board [rows][cols]int) []cluster {
 			var component [][2]int
 			queue := [][2]int{{r, c}}
 			visited[r][c] = true
+			log.Printf("DEBUG: Начинаем BFS с [%d, %d] = символ %d", r, c, sym)
 
+			// BFS: находим все связанные ячейки с тем же символом
 			for len(queue) > 0 {
 				cur := queue[0]
 				queue = queue[1:]
-				component = append(component, cur)
 				cr, cc := cur[0], cur[1]
+
+				// Проверяем, что текущая ячейка действительно имеет нужный символ
+				// (защита от ошибок в логике)
+				if board[cr][cc] != sym {
+					log.Printf("ERROR: Ячейка [%d, %d] имеет символ %d, ожидался %d. Пропускаем.", cr, cc, board[cr][cc], sym)
+					continue
+				}
+
+				component = append(component, cur)
+				log.Printf("DEBUG: Добавляем в кластер [%d, %d] = символ %d", cr, cc, sym)
+
+				// Проверяем все 4 соседние ячейки
 				for _, d := range dirs {
 					nr, nc := cr+d[0], cc+d[1]
+					// Проверяем границы доски, что ячейка не посещена и имеет тот же символ
 					if nr >= 0 && nr < rows && nc >= 0 && nc < cols &&
 						!visited[nr][nc] && board[nr][nc] == sym {
 						visited[nr][nc] = true
 						queue = append(queue, [2]int{nr, nc})
+						log.Printf("DEBUG: Добавляем в очередь [%d, %d] = символ %d", nr, nc, sym)
 					}
 				}
 			}
+			// Кластер должен содержать минимум 5 символов
 			if len(component) >= 5 {
-				clusters = append(clusters, cluster{symbol: sym, cells: component})
+				log.Printf("DEBUG: Найден потенциальный кластер символа %d размером %d: %v", sym, len(component), component)
+				// Проверяем корректность всех ячеек в кластере перед сохранением
+				validComponent := make([][2]int, 0, len(component))
+				for _, cell := range component {
+					r, c := cell[0], cell[1]
+					if r >= 0 && r < rows && c >= 0 && c < cols && board[r][c] == sym {
+						validComponent = append(validComponent, cell)
+					} else {
+						log.Printf("ERROR: Некорректная ячейка в кластере символа %d: [%d, %d] = символ %d", sym, r, c, board[r][c])
+					}
+				}
+
+				if len(validComponent) >= 5 {
+					log.Printf("Found cluster: symbol=%d, size=%d, cells=%v", sym, len(validComponent), validComponent)
+					clusters = append(clusters, cluster{symbol: sym, cells: validComponent})
+				} else {
+					log.Printf("WARNING: Кластер символа %d отфильтрован - осталось только %d валидных ячеек из %d", sym, len(validComponent), len(component))
+				}
+			} else if len(component) > 1 {
+				log.Printf("DEBUG: Компонент символа %d размером %d (меньше 5): %v", sym, len(component), component)
 			}
 		}
 	}
+	log.Printf("----------------------------------------------------")
 	return clusters
 }
 

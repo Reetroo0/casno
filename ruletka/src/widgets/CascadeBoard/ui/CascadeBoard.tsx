@@ -94,10 +94,15 @@ export const CascadeBoard: React.FC = () => {
       // Помечаем ячейки для подсветки (вместо взрыва)
       const newHighlighted = new Set<string>();
       cascade.clusters.forEach((cluster: any) => {
+        // Отладочный вывод для проверки всех ячеек кластера
+        console.log(`Cluster symbol ${cluster.symbol}, count: ${cluster.count}, cells:`, cluster.cells);
         cluster.cells.forEach((cell: any) => {
-          newHighlighted.add(`${cell.row}-${cell.col}`);
+          const cellKey = `${cell.row}-${cell.col}`;
+          newHighlighted.add(cellKey);
+          console.log(`Adding cell to highlight: row=${cell.row}, col=${cell.col}, key=${cellKey}`);
         });
       });
+      console.log(`Total highlighted cells: ${newHighlighted.size}`);
       setExplodingCells(newHighlighted); // Используем то же состояние, но для подсветки
 
       // Шаг 1: Подсветка кластеров (1500ms - показываем комбинацию)
