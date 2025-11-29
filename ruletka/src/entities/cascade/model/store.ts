@@ -249,12 +249,7 @@ export const useCascadeGameStore = create<CascadeGameStore>((set, get) => ({
               board: result.board,
               lastShownFreeSpins: result.awarded_free_spins > 0 ? result.awarded_free_spins : currentState.lastShownFreeSpins,
             });
-            // Если начислены новые фриспины, показываем уведомление только один раз
-            if (result.awarded_free_spins > 0 && currentState.lastShownFreeSpins !== result.awarded_free_spins) {
-              setTimeout(() => {
-                alert(`Вы выиграли ${result.awarded_free_spins} бесплатных вращений!`);
-              }, 500);
-            }
+            // Уведомления о фриспинах убраны по запросу пользователя
           }
         }, spinDuration);
       } catch (error) {
@@ -370,15 +365,8 @@ export const useCascadeGameStore = create<CascadeGameStore>((set, get) => ({
       board: state.finalBoard.map(row => [...row]), // Устанавливаем финальную доску
     });
 
-    // Если начислены новые фриспины, показываем уведомление только если это новое значение
-    if (newAwardedFreeSpins > 0 && state.lastShownFreeSpins !== newAwardedFreeSpins) {
-      setTimeout(() => {
-        alert(`Вы выиграли ${newAwardedFreeSpins} бесплатных вращений!`);
-        // Обновляем lastShownFreeSpins после показа уведомления
-        set({ lastShownFreeSpins: newAwardedFreeSpins });
-      }, 500);
-    } else if (newAwardedFreeSpins > 0) {
-      // Обновляем lastShownFreeSpins даже если не показываем уведомление
+    // Обновляем lastShownFreeSpins (уведомления о фриспинах убраны по запросу пользователя)
+    if (newAwardedFreeSpins > 0) {
       set({ lastShownFreeSpins: newAwardedFreeSpins });
     }
   },
