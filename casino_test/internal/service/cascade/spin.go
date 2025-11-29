@@ -105,6 +105,7 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 	}
 
 	return &model.CascadeSpinResult{
+		InitialBoard:     spinRes.InitialBoard,
 		Board:            spinRes.Board,
 		Cascades:         spinRes.Cascades,
 		TotalPayout:      spinRes.TotalPayout,
@@ -142,6 +143,9 @@ func (s *serv) spinOnce(bet int, resetMultipliers bool) (*model.CascadeSpinResul
 		s.fillBoard(&board)
 		// ← Важно: множители остаются от прошлого спина!
 	}
+
+	// Сохраняем начальную доску до всех каскадов
+	initialBoard := board
 
 	cascades := []model.CascadeStep{}
 	var totalWin int
@@ -221,6 +225,7 @@ func (s *serv) spinOnce(bet int, resetMultipliers bool) (*model.CascadeSpinResul
 	totalPayout := s.applyMaxPayout(totalWin, bet)
 
 	return &model.CascadeSpinResult{
+		InitialBoard:     initialBoard,
 		Board:            board,
 		Cascades:         cascades,
 		TotalPayout:      totalPayout,

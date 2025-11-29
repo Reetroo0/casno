@@ -5,19 +5,28 @@ import { CascadeCell } from './CascadeCell';
 import './CascadeBoard.css';
 
 export const CascadeBoard: React.FC = () => {
-  const { board, isSpinning, isResolving, cascades, currentCascadeIndex } = useCascadeGameStore();
+  const { board, isSpinning, isResolving, cascades, currentCascadeIndex, finalBoard: storeFinalBoard, isTurbo } = useCascadeGameStore();
   const [displayBoard, setDisplayBoard] = useState<number[][]>(board);
   const [explodingCells, setExplodingCells] = useState<Set<string>>(new Set());
   const [fallingSymbols, setFallingSymbols] = useState<Map<string, { from: number; to: number }>>(new Map());
   const [spinningColumns, setSpinningColumns] = useState<Set<number>>(new Set()); // Столбцы, которые вращаются
   const [stoppedColumns, setStoppedColumns] = useState<Set<number>>(new Set()); // Столбцы, которые остановились
-  const [finalBoard, setFinalBoard] = useState<number[][] | null>(null); // Финальная доска после спина
+  const [finalBoard, setFinalBoard] = useState<number[][] | null>(null); // Финальная доска после спина (локальная для анимации)
+
+  // Функция для расчета длительности анимаций в зависимости от турбо режима
+  const getAnimationDuration = (normalDuration: number) => {
+    return isTurbo ? normalDuration * 0.1 : normalDuration; // В турбо режиме анимации в 10 раз быстрее
+  };
 
   // Анимация спина в стиле Sugar Rush - символы вращаются, столбцы останавливаются слева направо
   useEffect(() => {
     if (isSpinning && !isResolving) {
-      // Сохраняем финальную доску
-      const finalBoardData = board.map(row => [...row]);
+      // Используем финальную доску из store (из ответа бекенда)
+      const finalBoardData = storeFinalBoard && storeFinalBoard.length > 0 
+        ? storeFinalBoard.map(row => [...row])
+        : board.map(row => [...row]); // Fallback на начальную доску, если финальная не установлена
+      console.log('Spin animation: using finalBoard from store:', finalBoardData);
+      console.log('FinalBoard at [1,6]:', finalBoardData[1]?.[6]);
       setFinalBoard(finalBoardData);
       
       // Все столбцы начинают вращаться одновременно
@@ -29,8 +38,8 @@ export const CascadeBoard: React.FC = () => {
       setStoppedColumns(new Set());
       
       // Столбцы останавливаются последовательно слева направо
-      const spinDuration = 2000; // 2 секунды базового вращения
-      const stopDelay = 200; // 200ms между остановками столбцов
+      const spinDuration = getAnimationDuration(2000); // 2 секунды базового вращения (или 200ms в турбо)
+      const stopDelay = getAnimationDuration(200); // 200ms между остановками столбцов (или 20ms в турбо)
       
       for (let col = 0; col < 7; col++) {
         setTimeout(() => {
@@ -48,7 +57,7 @@ export const CascadeBoard: React.FC = () => {
       }
       
       // После остановки всех столбцов показываем финальную доску
-      const totalDuration = spinDuration + 7 * stopDelay + 300; // +300ms для завершения анимации
+      const totalDuration = spinDuration + 7 * stopDelay + getAnimationDuration(300); // +300ms для завершения анимации (или 30ms в турбо)
       const finalTimer = setTimeout(() => {
         setDisplayBoard(finalBoardData);
         setSpinningColumns(new Set());
@@ -63,7 +72,7 @@ export const CascadeBoard: React.FC = () => {
         setFinalBoard(null);
       };
     }
-  }, [isSpinning, isResolving, board]);
+  }, [isSpinning, isResolving, board, isTurbo, storeFinalBoard]);
 
   // Синхронизируем displayBoard с board при изменении начальной доски
   useEffect(() => {
@@ -80,6 +89,8 @@ export const CascadeBoard: React.FC = () => {
   // Синхронизируем displayBoard когда начинается каскад (currentCascadeIndex становится 0)
   useEffect(() => {
     if (isResolving && currentCascadeIndex === 0) {
+      console.log('Starting cascade animation, board:', board);
+      console.log('Board at [1,6]:', board[1]?.[6]);
       setDisplayBoard(board.map(row => [...row]));
       setExplodingCells(new Set());
       setFallingSymbols(new Map());
@@ -105,7 +116,12 @@ export const CascadeBoard: React.FC = () => {
       console.log(`Total highlighted cells: ${newHighlighted.size}`);
       setExplodingCells(newHighlighted); // Используем то же состояние, но для подсветки
 
-      // Шаг 1: Подсветка кластеров (1500ms - показываем комбинацию)
+      // Функция для расчета длительности анимаций каскадов в зависимости от турбо режима
+      const getCascadeDuration = (normalDuration: number) => {
+        return isTurbo ? normalDuration * 0.1 : normalDuration; // В турбо режиме анимации в 10 раз быстрее
+      };
+
+      // Шаг 1: Подсветка кластеров (1500ms - показываем комбинацию, или 150ms в турбо)
       const highlightTimer = setTimeout(() => {
         // После подсветки удаляем ячейки кластеров и ОЧИЩАЕМ подсветку
         setExplodingCells(new Set()); // Очищаем подсветку ПЕРЕД удалением
@@ -119,7 +135,7 @@ export const CascadeBoard: React.FC = () => {
           return newBoard;
         });
 
-        // Шаг 2: Применяем гравитацию - символы падают вниз в столбцах (800ms - более плавно)
+        // Шаг 2: Применяем гравитацию - символы падают вниз в столбцах (800ms - более плавно, или 80ms в турбо)
         const gravityTimer = setTimeout(() => {
           // Сначала показываем анимацию падения для всех символов
           setDisplayBoard(prevBoard => {
@@ -145,7 +161,7 @@ export const CascadeBoard: React.FC = () => {
             return newBoard;
           });
 
-          // Шаг 3: Анимация появления новых символов сверху (600ms - более плавно)
+          // Шаг 3: Анимация появления новых символов сверху (600ms - более плавно, или 60ms в турбо)
           const newSymbolsTimer = setTimeout(() => {
             // Убеждаемся, что подсветка очищена перед добавлением новых символов
             setExplodingCells(new Set());
@@ -160,7 +176,7 @@ export const CascadeBoard: React.FC = () => {
             });
             setFallingSymbols(falling);
 
-            // Шаг 4: Обновляем доску с новыми символами (800ms - более плавно)
+            // Шаг 4: Обновляем доску с новыми символами (800ms - более плавно, или 80ms в турбо)
             const finalTimer = setTimeout(() => {
               setDisplayBoard(prevBoard => {
                 const newBoard = prevBoard.map(row => [...row]);
@@ -192,20 +208,20 @@ export const CascadeBoard: React.FC = () => {
               setFallingSymbols(new Map());
               // Убеждаемся, что подсветка очищена после добавления символов
               setExplodingCells(new Set());
-            }, 800);
+            }, getCascadeDuration(800));
 
             return () => clearTimeout(finalTimer);
-          }, 600);
+          }, getCascadeDuration(600));
 
           return () => clearTimeout(newSymbolsTimer);
-        }, 800);
+        }, getCascadeDuration(800));
 
         return () => clearTimeout(gravityTimer);
-      }, 1500); // Увеличиваем время подсветки
+      }, getCascadeDuration(1500)); // Увеличиваем время подсветки
 
       return () => clearTimeout(highlightTimer);
     }
-  }, [currentCascadeIndex, cascades, isResolving]);
+  }, [currentCascadeIndex, cascades, isResolving, isTurbo]);
 
   const getSymbolEmoji = (symbol: number): string => {
     switch (symbol) {
@@ -245,6 +261,7 @@ export const CascadeBoard: React.FC = () => {
               const isStopped = stoppedColumns.has(colIndex);
               
               // Во время спина показываем финальный символ, если столбец остановился
+              // Используем локальный finalBoard для анимации спина
               const displaySymbol = finalBoard && isStopped 
                 ? finalBoard[rowIndex][colIndex] 
                 : symbol;
@@ -262,6 +279,7 @@ export const CascadeBoard: React.FC = () => {
                   fallingTo={falling?.to}
                   isSpinning={isSpinning && !isStopped}
                   finalSymbol={finalBoard ? finalBoard[rowIndex][colIndex] : undefined}
+                  isTurbo={isTurbo}
                 />
               );
             })

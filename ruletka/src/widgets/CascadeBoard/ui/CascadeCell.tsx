@@ -13,6 +13,7 @@ interface CascadeCellProps {
   fallingTo?: number;
   isSpinning?: boolean;
   finalSymbol?: number;
+  isTurbo?: boolean;
 }
 
 export const CascadeCell: React.FC<CascadeCellProps> = ({
@@ -26,6 +27,7 @@ export const CascadeCell: React.FC<CascadeCellProps> = ({
   fallingTo,
   isSpinning,
   finalSymbol,
+  isTurbo = false,
 }) => {
   const isEmpty = symbol === -1;
   
@@ -73,7 +75,7 @@ export const CascadeCell: React.FC<CascadeCellProps> = ({
 
   return (
     <div
-      className={`cascade-cell ${isEmpty ? 'empty' : ''} ${isHighlighted ? 'highlighted' : ''} ${isFalling ? 'falling' : ''} ${isSpinning ? 'spinning' : ''}`}
+      className={`cascade-cell ${isEmpty ? 'empty' : ''} ${isHighlighted ? 'highlighted' : ''} ${isFalling ? 'falling' : ''} ${isSpinning ? 'spinning' : ''} ${isTurbo && isSpinning ? 'turbo' : ''}`}
       style={{
         gridRow: row + 1,
         gridColumn: col + 1,

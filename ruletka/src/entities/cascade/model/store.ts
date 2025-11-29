@@ -158,48 +158,62 @@ export const useCascadeGameStore = create<CascadeGameStore>((set, get) => ({
         setTimeout(() => {
           const currentState = get();
           
-          // Реконструируем начальную доску из финальной и каскадов
-          // Начинаем с финальной доски и "откатываем" каскады назад
-          let initialBoard = result.board.map(row => [...row]);
+          // Используем начальную доску из ответа бекенда (если есть)
+          // Иначе реконструируем из финальной доски и каскадов
+          let initialBoard: number[][];
           
-          // Если есть каскады, реконструируем начальную доску
-          if (result.cascades && result.cascades.length > 0) {
-            // Идем в обратном порядке по каскадам и восстанавливаем доску
-            for (let i = result.cascades.length - 1; i >= 0; i--) {
-              const cascade = result.cascades[i];
-              
-              // Сначала удаляем новые символы, которые были добавлены в этом каскаде
-              cascade.new_symbols.forEach((newSymbol: any) => {
-                if (newSymbol.symbol !== -1) {
-                  initialBoard[newSymbol.position.row][newSymbol.position.col] = -1;
-                }
-              });
-              
-              // Затем применяем обратную гравитацию - символы поднимаются вверх
-              const BOARD_SIZE = 7;
-              for (let col = 0; col < BOARD_SIZE; col++) {
-                const column: number[] = [];
-                // Собираем все непустые символы в столбце (снизу вверх)
-                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
-                  if (initialBoard[row][col] !== -1) {
-                    column.push(initialBoard[row][col]);
+          if (result.initial_board && result.initial_board.length > 0) {
+            // Используем начальную доску из ответа бекенда
+            initialBoard = result.initial_board.map(row => [...row]);
+            console.log('Using initial_board from backend:', initialBoard);
+          } else {
+            // Fallback: реконструируем начальную доску из финальной и каскадов
+            console.warn('initial_board not provided, reconstructing from final board and cascades');
+            initialBoard = result.board.map(row => [...row]);
+            
+            // Если есть каскады, реконструируем начальную доску
+            if (result.cascades && result.cascades.length > 0) {
+              // Идем в обратном порядке по каскадам и восстанавливаем доску
+              for (let i = result.cascades.length - 1; i >= 0; i--) {
+                const cascade = result.cascades[i];
+                
+                // Сначала удаляем новые символы, которые были добавлены в этом каскаде
+                cascade.new_symbols.forEach((newSymbol: any) => {
+                  if (newSymbol.symbol !== -1) {
+                    initialBoard[newSymbol.position.row][newSymbol.position.col] = -1;
+                  }
+                });
+                
+                // Затем применяем обратную гравитацию - символы поднимаются вверх
+                const BOARD_SIZE = 7;
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                  const column: number[] = [];
+                  // Собираем все непустые символы в столбце (снизу вверх)
+                  for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                    if (initialBoard[row][col] !== -1) {
+                      column.push(initialBoard[row][col]);
+                    }
+                  }
+                  // Заполняем столбец снизу вверх
+                  for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                    const index = BOARD_SIZE - 1 - row;
+                    initialBoard[row][col] = index < column.length ? column[index] : -1;
                   }
                 }
-                // Заполняем столбец снизу вверх
-                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
-                  const index = BOARD_SIZE - 1 - row;
-                  initialBoard[row][col] = index < column.length ? column[index] : -1;
-                }
-              }
-              
-              // Восстанавливаем взорванные кластеры
-              cascade.clusters.forEach((cluster: any) => {
-                cluster.cells.forEach((cell: any) => {
-                  initialBoard[cell.row][cell.col] = cluster.symbol;
+                
+                // Восстанавливаем взорванные кластеры
+                cascade.clusters.forEach((cluster: any) => {
+                  cluster.cells.forEach((cell: any) => {
+                    initialBoard[cell.row][cell.col] = cluster.symbol;
+                  });
                 });
-              });
+              }
             }
           }
+          
+          console.log('Setting initial board from backend:', initialBoard);
+          console.log('Initial board at [1,6]:', initialBoard[1]?.[6]);
+          console.log('Final board at [1,6]:', result.board[1]?.[6]);
           
           set({
             balance: result.balance,
@@ -211,19 +225,23 @@ export const useCascadeGameStore = create<CascadeGameStore>((set, get) => ({
             isBonusGame: result.free_spins_left > 0,
             inFreeSpin: result.in_free_spin,
             board: initialBoard, // Устанавливаем начальную доску
+            finalBoard: result.board.map(row => [...row]), // Устанавливаем финальную доску из ответа бекенда
           });
           
-          // Останавливаем спин после завершения анимации падения (2 секунды)
+          // Останавливаем спин после завершения анимации падения
+          // В турбо режиме анимация спина быстрее (200ms базовое + 7*20ms задержки + 30ms = ~370ms)
+          // В обычном режиме: 2000ms + 7*200ms + 300ms = ~3700ms
+          const spinAnimationDuration = currentState.isTurbo ? 370 : 3700;
           setTimeout(() => {
             set({ isSpinning: false });
-          }, 2100); // 2 секунды анимации + небольшой запас
+          }, spinAnimationDuration);
 
           // Если есть каскады, запускаем анимацию
           if (result.cascades && result.cascades.length > 0) {
             // Задержка перед началом каскада (после завершения спина)
             setTimeout(() => {
               get().startCascadeAnimation(result.cascades, initialBoard, result.board);
-            }, 2100); // Даем время на завершение анимации спина (2s + небольшой запас)
+            }, spinAnimationDuration); // Даем время на завершение анимации спина
           } else {
             // Если нет каскадов, сразу устанавливаем финальную доску
             const currentState = get();

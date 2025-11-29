@@ -31,6 +31,7 @@ type CascadeStep struct {
 
 // CascadeSpinResult представляет результат спина с каскадами
 type CascadeSpinResult struct {
+	InitialBoard     [7][7]int     // Начальная доска до всех каскадов
 	Board            [7][7]int     // Итоговая доска после всех каскадов
 	Cascades         []CascadeStep // Все шаги обновления доски
 	TotalPayout      int           // Выигрыш за весь спин в деньгах

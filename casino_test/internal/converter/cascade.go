@@ -14,6 +14,7 @@ func ToCascadeSpin(req dto.CascadeSpinRequest) model.CascadeSpin {
 // Основной конвертер результата спина
 func ToCascadeSpinResponse(resp model.CascadeSpinResult) dto.CascadeSpinResponse {
 	return dto.CascadeSpinResponse{
+		InitialBoard:     resp.InitialBoard,
 		Board:            resp.Board,
 		Cascades:         toCascadeSteps(resp.Cascades),
 		TotalPayout:      resp.TotalPayout,

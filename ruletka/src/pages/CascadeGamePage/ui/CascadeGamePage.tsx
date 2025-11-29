@@ -14,7 +14,7 @@ export const CascadeGamePage: React.FC = () => {
   const [depositAmount, setDepositAmount] = useState('100');
   const [showDepositForm, setShowDepositForm] = useState(false);
   
-  const { useOnlineMode, setOnlineMode, syncBalance, nextCascadeStep, isResolving, cascades, currentCascadeIndex, deposit } = useCascadeGameStore();
+  const { useOnlineMode, setOnlineMode, syncBalance, nextCascadeStep, isResolving, cascades, currentCascadeIndex, deposit, isTurbo } = useCascadeGameStore();
   const { user, isAuthenticated, logout } = useAuthStore();
 
   // Синхронизация баланса при загрузке
@@ -50,15 +50,17 @@ export const CascadeGamePage: React.FC = () => {
   useEffect(() => {
     if (isResolving && cascades.length > 0 && currentCascadeIndex >= 0) {
       // Задержка зависит от того, есть ли еще каскады
-      // Нужно дать время на анимацию взрыва (1000ms) + гравитацию (800ms) + новые символы (600ms + 800ms) = ~3200ms
+      // Нужно дать время на анимацию взрыва (1500ms) + гравитацию (800ms) + новые символы (600ms + 800ms) = ~3700ms
+      // В турбо режиме все анимации в 10 раз быстрее, поэтому задержка тоже в 10 раз меньше
+      const cascadeDelay = isTurbo ? 370 : 3500; // 350ms в турбо, 3500ms в обычном режиме
       const timer = setTimeout(() => {
         // nextCascadeStep сам вызовет finishCascadeAnimation когда это последний каскад
         nextCascadeStep();
-      }, 3500); // Задержка между каскадами (включая время на анимацию) - более медленно
+      }, cascadeDelay);
 
       return () => clearTimeout(timer);
     }
-  }, [isResolving, cascades, currentCascadeIndex, nextCascadeStep]);
+  }, [isResolving, cascades, currentCascadeIndex, nextCascadeStep, isTurbo]);
 
   return (
     <div className="cascade-game-page">

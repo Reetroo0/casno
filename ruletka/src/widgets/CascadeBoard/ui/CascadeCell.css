@@ -117,6 +117,10 @@
   height: 1200%; /* 12 символов * 100% */
 }
 
+.cascade-cell.spinning.turbo .symbol-reel-container {
+  animation: symbolReelSpin 0.01s linear infinite; /* В турбо режиме вращение в 6 раз быстрее */
+}
+
 .cascade-cell.spinning .symbol-reel-item {
   height: calc(100% / 12);
   min-height: calc(100% / 12);

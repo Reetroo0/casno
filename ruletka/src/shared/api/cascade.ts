@@ -7,6 +7,7 @@ export interface CascadeSpinRequest {
 }
 
 export interface CascadeSpinResponse {
+  initial_board: number[][]; // Начальная доска до всех каскадов: -1 = пусто, 0-6 = обычные, 7 = скаттер
   board: number[][]; // 7x7 доска: -1 = пусто, 0-6 = обычные, 7 = скаттер
   cascades: CascadeStep[]; // Все шаги каскада (для анимации)
   total_payout: number; // Общая выплата за спин

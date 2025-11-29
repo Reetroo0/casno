@@ -5,6 +5,7 @@ type CascadeSpinRequest struct {
 }
 
 type CascadeSpinResponse struct {
+	InitialBoard     [7][7]int     `json:"initial_board"`      // Начальная доска до всех каскадов: -1 = пусто, 0-6 = обычные, 7 = скаттер
 	Board            [7][7]int     `json:"board"`              // Итоговая доска: -1 = пусто, 0-6 = обычные, 7 = скаттер
 	Cascades         []CascadeStep `json:"cascades"`           // Все шаги каскада (для анимации)
 	TotalPayout      int           `json:"total_payout"`       // Общая выплата за спин
