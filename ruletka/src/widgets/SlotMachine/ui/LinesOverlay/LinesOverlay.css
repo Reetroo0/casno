@@ -1,0 +1,131 @@
+.lines-overlay {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  animation: slideDown 0.4s ease;
+  white-space: nowrap;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.lines-counter {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  padding: 10px 20px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.6);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.6);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.9);
+  }
+}
+
+.lines-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.lines-count {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Индикатор текущей линии */
+.line-indicator {
+  position: absolute;
+  bottom: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%);
+  padding: 8px 16px;
+  border-radius: 15px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 10;
+  animation: slideUp 0.3s ease;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.line-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.line-win {
+  font-size: 16px;
+  font-weight: bold;
+  color: #FFD700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .lines-overlay {
+    top: -50px;
+  }
+  
+  .lines-counter {
+    padding: 8px 16px;
+  }
+  
+  .lines-label {
+    font-size: 12px;
+  }
+  
+  .lines-count {
+    font-size: 20px;
+  }
+  
+  .line-indicator {
+    bottom: -40px;
+    padding: 6px 12px;
+  }
+  
+  .line-number {
+    font-size: 10px;
+  }
+  
+  .line-win {
+    font-size: 14px;
+  }
+}
+

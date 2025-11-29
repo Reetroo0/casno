@@ -1,0 +1,61 @@
+.control-panel {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  margin-top: 20px;
+}
+
+.bet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.control-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.bet-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.bet-display {
+  min-width: 60px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.spin-button {
+  min-width: 200px;
+  font-size: 20px;
+  padding: 16px 32px;
+}
+
+.bonus-button {
+  min-width: 180px;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .control-panel {
+    flex-direction: column;
+  }
+}
+

@@ -1,0 +1,390 @@
+import { create } from 'zustand';
+import { CascadeGameState } from '@shared/types/cascade';
+import { CascadeAPI } from '@shared/api/cascade';
+
+interface CascadeGameStore extends CascadeGameState {
+  // Actions
+  spin: () => Promise<void>;
+  setBet: (bet: number) => void;
+  buyBonus: () => Promise<void>;
+  reset: () => void;
+  deposit: (amount: number) => Promise<void>;
+  syncBalance: () => Promise<void>;
+  useOnlineMode: boolean;
+  setOnlineMode: (online: boolean) => void;
+  isTurbo: boolean;
+  setTurbo: (turbo: boolean) => void;
+  // Cascade-specific
+  initialBoard: number[][]; // Начальная доска до каскадов
+  finalBoard: number[][]; // Финальная доска после всех каскадов
+  lastShownFreeSpins: number; // Последнее количество фриспинов, о котором уже показали уведомление
+  startCascadeAnimation: (cascades: any[], initialBoard: number[][], finalBoard: number[][]) => void;
+  nextCascadeStep: () => void;
+  finishCascadeAnimation: () => void;
+}
+
+const BOARD_SIZE = 7;
+const DEFAULT_BALANCE = 10000;
+const DEFAULT_BET = 20;
+const MIN_BET = 2;
+const MAX_BET = 1000;
+
+const generateEmptyBoard = (): number[][] => {
+  return Array(BOARD_SIZE)
+    .fill(null)
+    .map(() => Array(BOARD_SIZE).fill(-1));
+};
+
+// Генерируем начальную доску со случайными символами для отображения
+const generateInitialDisplayBoard = (): number[][] => {
+  const board: number[][] = [];
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    board[row] = [];
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      // Генерируем случайный символ 0-6, с небольшой вероятностью скаттера
+      const rand = Math.random();
+      if (rand < 0.02) {
+        board[row][col] = 7; // Scatter
+      } else {
+        board[row][col] = Math.floor(Math.random() * 7); // 0-6
+      }
+    }
+  }
+  return board;
+};
+
+const initialState: CascadeGameState = {
+  board: generateInitialDisplayBoard(), // Начальная доска со случайными символами для отображения
+  balance: DEFAULT_BALANCE,
+  bet: DEFAULT_BET,
+  isSpinning: false,
+  isResolving: false,
+  isBonusGame: false,
+  freeSpinsLeft: 0,
+  lastWin: 0,
+  totalWin: 0,
+  currentCascadeIndex: -1,
+  cascades: [],
+  scatterCount: 0,
+  awardedFreeSpins: 0,
+  inFreeSpin: false,
+};
+
+const initialStoreState = {
+  ...initialState,
+  initialBoard: generateEmptyBoard(),
+  finalBoard: generateEmptyBoard(),
+  lastShownFreeSpins: 0,
+};
+
+export const useCascadeGameStore = create<CascadeGameStore>((set, get) => ({
+  ...initialStoreState,
+  useOnlineMode: false,
+  isTurbo: false,
+
+  setTurbo: (turbo: boolean) => {
+    set({ isTurbo: turbo });
+  },
+
+  setOnlineMode: (online: boolean) => {
+    set({ useOnlineMode: online });
+  },
+
+  syncBalance: async () => {
+    const state = get();
+    if (!state.useOnlineMode) return;
+
+    try {
+      const data = await CascadeAPI.checkData();
+      set({
+        balance: data.balance,
+        freeSpinsLeft: data.free_spins_left,
+        isBonusGame: data.free_spins_left > 0,
+      });
+    } catch (error) {
+      console.error('Failed to sync balance:', error);
+    }
+  },
+
+  deposit: async (amount: number) => {
+    const state = get();
+
+    if (state.useOnlineMode) {
+      try {
+        await CascadeAPI.deposit(amount);
+        const data = await CascadeAPI.checkData();
+        set({
+          balance: data.balance,
+          freeSpinsLeft: data.free_spins_left,
+        });
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Ошибка при пополнении баланса');
+        throw error;
+      }
+    } else {
+      set({ balance: state.balance + amount });
+    }
+  },
+
+  spin: async () => {
+    const state = get();
+
+    if (state.isSpinning || state.isResolving) return;
+
+    // Проверяем баланс
+    if (!state.isBonusGame && state.balance < state.bet) {
+      alert('Недостаточно средств!');
+      return;
+    }
+
+    set({
+      isSpinning: true,
+      isResolving: false,
+      lastWin: 0,
+      currentCascadeIndex: -1,
+      cascades: [],
+      scatterCount: 0,
+      awardedFreeSpins: 0,
+      lastShownFreeSpins: 0, // Сбрасываем при новом спине
+    });
+
+    const spinDuration = state.isTurbo ? 100 : 1000;
+
+    if (state.useOnlineMode) {
+      try {
+        const result = await CascadeAPI.spin(state.bet);
+
+        // Имитируем вращение
+        setTimeout(() => {
+          const currentState = get();
+          
+          // Реконструируем начальную доску из финальной и каскадов
+          // Начинаем с финальной доски и "откатываем" каскады назад
+          let initialBoard = result.board.map(row => [...row]);
+          
+          // Если есть каскады, реконструируем начальную доску
+          if (result.cascades && result.cascades.length > 0) {
+            // Идем в обратном порядке по каскадам и восстанавливаем доску
+            for (let i = result.cascades.length - 1; i >= 0; i--) {
+              const cascade = result.cascades[i];
+              
+              // Сначала удаляем новые символы, которые были добавлены в этом каскаде
+              cascade.new_symbols.forEach((newSymbol: any) => {
+                if (newSymbol.symbol !== -1) {
+                  initialBoard[newSymbol.position.row][newSymbol.position.col] = -1;
+                }
+              });
+              
+              // Затем применяем обратную гравитацию - символы поднимаются вверх
+              const BOARD_SIZE = 7;
+              for (let col = 0; col < BOARD_SIZE; col++) {
+                const column: number[] = [];
+                // Собираем все непустые символы в столбце (снизу вверх)
+                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                  if (initialBoard[row][col] !== -1) {
+                    column.push(initialBoard[row][col]);
+                  }
+                }
+                // Заполняем столбец снизу вверх
+                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                  const index = BOARD_SIZE - 1 - row;
+                  initialBoard[row][col] = index < column.length ? column[index] : -1;
+                }
+              }
+              
+              // Восстанавливаем взорванные кластеры
+              cascade.clusters.forEach((cluster: any) => {
+                cluster.cells.forEach((cell: any) => {
+                  initialBoard[cell.row][cell.col] = cluster.symbol;
+                });
+              });
+            }
+          }
+          
+          set({
+            balance: result.balance,
+            lastWin: result.total_payout,
+            totalWin: currentState.totalWin + result.total_payout,
+            scatterCount: result.scatter_count,
+            awardedFreeSpins: result.awarded_free_spins,
+            freeSpinsLeft: result.free_spins_left,
+            isBonusGame: result.free_spins_left > 0,
+            inFreeSpin: result.in_free_spin,
+            board: initialBoard, // Устанавливаем начальную доску
+          });
+          
+          // Останавливаем спин после завершения анимации падения (2 секунды)
+          setTimeout(() => {
+            set({ isSpinning: false });
+          }, 2100); // 2 секунды анимации + небольшой запас
+
+          // Если есть каскады, запускаем анимацию
+          if (result.cascades && result.cascades.length > 0) {
+            // Задержка перед началом каскада (после завершения спина)
+            setTimeout(() => {
+              get().startCascadeAnimation(result.cascades, initialBoard, result.board);
+            }, 2100); // Даем время на завершение анимации спина (2s + небольшой запас)
+          } else {
+            // Если нет каскадов, сразу устанавливаем финальную доску
+            const currentState = get();
+            set({ 
+              board: result.board,
+              lastShownFreeSpins: result.awarded_free_spins > 0 ? result.awarded_free_spins : currentState.lastShownFreeSpins,
+            });
+            // Если начислены новые фриспины, показываем уведомление только один раз
+            if (result.awarded_free_spins > 0 && currentState.lastShownFreeSpins !== result.awarded_free_spins) {
+              setTimeout(() => {
+                alert(`Вы выиграли ${result.awarded_free_spins} бесплатных вращений!`);
+              }, 500);
+            }
+          }
+        }, spinDuration);
+      } catch (error) {
+        set({ isSpinning: false, isResolving: false });
+        alert(error instanceof Error ? error.message : 'Ошибка при спине');
+      }
+    } else {
+      // Оффлайн режим - генерируем случайную доску
+      if (!state.isBonusGame) {
+        set({ balance: state.balance - state.bet });
+      }
+
+      // Генерируем случайную доску для демо
+      const newBoard = generateRandomBoard();
+      
+      setTimeout(() => {
+        set({
+          board: newBoard,
+          isSpinning: false,
+          lastWin: 0,
+        });
+      }, spinDuration);
+    }
+  },
+
+  setBet: (bet: number) => {
+    const state = get();
+    if (state.isSpinning || state.isResolving) return;
+
+    const clampedBet = Math.max(MIN_BET, Math.min(MAX_BET, bet));
+    // Убеждаемся, что ставка четная
+    const evenBet = Math.floor(clampedBet / 2) * 2;
+    
+    set({ bet: evenBet });
+  },
+
+  buyBonus: async () => {
+    const state = get();
+
+    if (state.isSpinning || state.isResolving || state.isBonusGame) return;
+
+    const bonusCost = state.bet * 100;
+
+    if (state.balance < bonusCost) {
+      alert('Недостаточно средств для покупки бонуса!');
+      return;
+    }
+
+    set({
+      isSpinning: true,
+      isResolving: false,
+      lastWin: 0,
+    });
+
+    if (state.useOnlineMode) {
+      try {
+        await CascadeAPI.buyBonus(bonusCost);
+        const data = await CascadeAPI.checkData();
+        set({
+          balance: data.balance,
+          freeSpinsLeft: data.free_spins_left,
+          isBonusGame: data.free_spins_left > 0,
+          isSpinning: false,
+        });
+
+        if (data.free_spins_left > 0) {
+          alert(`Бонус куплен! У вас ${data.free_spins_left} бесплатных вращений!`);
+        }
+      } catch (error) {
+        set({ isSpinning: false });
+        alert(error instanceof Error ? error.message : 'Ошибка при покупке бонуса');
+      }
+    } else {
+      // Оффлайн режим
+      set({
+        balance: state.balance - bonusCost,
+        freeSpinsLeft: 10,
+        isBonusGame: true,
+        isSpinning: false,
+      });
+      alert('Бонус куплен! У вас 10 бесплатных вращений!');
+    }
+  },
+
+  startCascadeAnimation: (cascades: any[], initialBoard: number[][], finalBoard: number[][]) => {
+    set({
+      cascades,
+      currentCascadeIndex: 0,
+      isResolving: true,
+      initialBoard: initialBoard.map(row => [...row]),
+      finalBoard: finalBoard.map(row => [...row]),
+      board: initialBoard.map(row => [...row]), // Устанавливаем начальную доску
+    });
+  },
+
+  nextCascadeStep: () => {
+    const state = get();
+    if (state.currentCascadeIndex < state.cascades.length - 1) {
+      set({ currentCascadeIndex: state.currentCascadeIndex + 1 });
+    } else {
+      get().finishCascadeAnimation();
+    }
+  },
+
+  finishCascadeAnimation: () => {
+    const state = get();
+    const newAwardedFreeSpins = state.awardedFreeSpins;
+    
+    set({
+      isResolving: false,
+      currentCascadeIndex: -1,
+      cascades: [],
+      board: state.finalBoard.map(row => [...row]), // Устанавливаем финальную доску
+    });
+
+    // Если начислены новые фриспины, показываем уведомление только если это новое значение
+    if (newAwardedFreeSpins > 0 && state.lastShownFreeSpins !== newAwardedFreeSpins) {
+      setTimeout(() => {
+        alert(`Вы выиграли ${newAwardedFreeSpins} бесплатных вращений!`);
+        // Обновляем lastShownFreeSpins после показа уведомления
+        set({ lastShownFreeSpins: newAwardedFreeSpins });
+      }, 500);
+    } else if (newAwardedFreeSpins > 0) {
+      // Обновляем lastShownFreeSpins даже если не показываем уведомление
+      set({ lastShownFreeSpins: newAwardedFreeSpins });
+    }
+  },
+
+  reset: () => {
+    set(initialStoreState);
+  },
+}));
+
+// Вспомогательная функция для генерации случайной доски (оффлайн режим)
+function generateRandomBoard(): number[][] {
+  const board: number[][] = [];
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    board[row] = [];
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      // Генерируем случайный символ 0-6, с небольшой вероятностью скаттера
+      const rand = Math.random();
+      if (rand < 0.02) {
+        board[row][col] = 7; // Scatter
+      } else {
+        board[row][col] = Math.floor(Math.random() * 7); // 0-6
+      }
+    }
+  }
+  return board;
+}
+

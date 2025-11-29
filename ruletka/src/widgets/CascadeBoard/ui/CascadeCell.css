@@ -1,0 +1,171 @@
+.cascade-cell {
+  position: relative;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  will-change: transform, opacity;
+}
+
+.cascade-cell:not(.empty):hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.cascade-cell.empty {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.cascade-symbol {
+  font-size: 3rem;
+  line-height: 1;
+  user-select: none;
+  animation: appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-10deg);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.cascade-cell.highlighted {
+  animation: highlight 1.5s ease-in-out;
+  z-index: 10;
+  will-change: box-shadow, transform;
+}
+
+@keyframes highlight {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+    transform: scale(1);
+    border-color: transparent;
+  }
+  25% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.6);
+    transform: scale(1.05);
+    border-color: rgba(255, 215, 0, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 215, 0, 1), 0 0 60px rgba(255, 215, 0, 0.8);
+    transform: scale(1.1);
+    border-color: rgba(255, 215, 0, 1);
+  }
+  75% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.6);
+    transform: scale(1.05);
+    border-color: rgba(255, 215, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+    transform: scale(1);
+    border-color: transparent;
+  }
+}
+
+.cascade-cell.falling {
+  animation: fallDown 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
+}
+
+
+@keyframes fallDown {
+  0% {
+    transform: translateY(-150%) scale(0.8);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.5;
+  }
+  70% {
+    transform: translateY(10%) scale(1.05);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Вращение символов в стиле Sugar Rush */
+.cascade-cell.spinning .cascade-symbol {
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+}
+
+.cascade-cell.spinning .symbol-reel-container {
+  display: flex;
+  flex-direction: column;
+  animation: symbolReelSpin 0.06s linear infinite;
+  will-change: transform;
+  height: 1200%; /* 12 символов * 100% */
+}
+
+.cascade-cell.spinning .symbol-reel-item {
+  height: calc(100% / 12);
+  min-height: calc(100% / 12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+@keyframes symbolReelSpin {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-66.666%); /* Прокручиваем реель */
+  }
+}
+
+/* Плавная остановка вращения - выравниваем на финальный символ (8-й из 12) */
+.cascade-cell:not(.spinning) .symbol-reel-container {
+  animation: symbolReelStop 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+}
+
+@keyframes symbolReelStop {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-66.666%); /* Финальный символ (8-й из 12) */
+  }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .cascade-symbol {
+    font-size: 1.8rem;
+  }
+  
+  .cascade-board {
+    padding: 10px;
+    margin: 10px;
+  }
+  
+  .cascade-grid {
+    gap: 2px;
+    padding: 4px;
+  }
+}
+
+
