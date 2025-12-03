@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CascadeBoard } from '@widgets/CascadeBoard';
-import { CascadeControlPanel } from '@widgets/CascadeControlPanel';
+import { CasinoControlPanel } from '@widgets/CasinoControlPanel';
 import { CascadeInfoPanel } from '@widgets/CascadeInfoPanel';
 import { Button } from '@shared/ui/Button';
 import { useCascadeGameStore } from '@entities/cascade/model/store';
@@ -14,7 +14,26 @@ export const CascadeGamePage: React.FC = () => {
   const [depositAmount, setDepositAmount] = useState('100');
   const [showDepositForm, setShowDepositForm] = useState(false);
   
-  const { useOnlineMode, setOnlineMode, syncBalance, nextCascadeStep, isResolving, cascades, currentCascadeIndex, deposit, isTurbo } = useCascadeGameStore();
+  const { 
+    useOnlineMode, 
+    setOnlineMode, 
+    syncBalance, 
+    nextCascadeStep, 
+    isResolving, 
+    cascades, 
+    currentCascadeIndex, 
+    deposit, 
+    isTurbo,
+    bet,
+    balance,
+    isSpinning,
+    isBonusGame,
+    freeSpinsLeft,
+    spin,
+    setBet,
+    buyBonus,
+    setTurbo,
+  } = useCascadeGameStore();
   const { user, isAuthenticated, logout } = useAuthStore();
 
   // Синхронизация баланса при загрузке
@@ -140,7 +159,23 @@ export const CascadeGamePage: React.FC = () => {
 
         <CascadeInfoPanel />
         <CascadeBoard />
-        <CascadeControlPanel />
+        <CasinoControlPanel
+          bet={bet}
+          balance={balance}
+          isSpinning={isSpinning}
+          isResolving={isResolving}
+          isBonusGame={isBonusGame}
+          freeSpinsLeft={freeSpinsLeft}
+          isTurbo={isTurbo}
+          onSpin={spin}
+          onBetIncrease={() => setBet(bet + 2)}
+          onBetDecrease={() => setBet(bet - 2)}
+          onTurboToggle={() => setTurbo(!isTurbo)}
+          onBuyBonus={buyBonus}
+          betStep={2}
+          minBet={2}
+          maxBet={1000}
+        />
       </main>
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
